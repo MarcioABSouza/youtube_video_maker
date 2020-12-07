@@ -1,12 +1,30 @@
 const algorithmia = require('algorithmia');
 const algorithmiaApiKey = require('../credentials/algorithmia.json').apiKey;
-const sentenceBoundaryDetection = require('sbd')
+const sentenceBoundaryDetection = require('sbd');
+
+const watsonApiKey = require('../credentials/watson-nlu.json').apikey
+const watsonUrl = require('../credentials/watson-nlu.json').url
+const NaturalLanguageUnderstandingV1 = require('ibm-watson/natural-language-understanding/v1');
+const { IamAuthenticator } = require('ibm-watson/auth');
+
+
+const nlu = new NaturalLanguageUnderstandingV1({
+    version: '2018-04-05',
+    authenticator: new IamAuthenticator({
+        apikey: watsonApiKey,
+    }),
+    url: watsonUrl,
+});
+
+
 
 async function robot(content) {
 
     await fechContentFromWikipedia(content)
     sanitizeContent(content)
     breakContentIntoSentences(content)
+    limitMaxumumSentences(content)
+    await fetchKeywordsOfAllSentences(content)
 
     async function fechContentFromWikipedia(content) {
 
@@ -52,14 +70,43 @@ async function robot(content) {
     function breakContentIntoSentences(content) {
         content.sentences = [];
         const sentences = sentenceBoundaryDetection.sentences(content.sourceContentSanitized)
-        sentences.forEach(sentence=>{
+        sentences.forEach(sentence => {
             content.sentences.push({
                 text: sentence,
                 keywords: [],
                 images: []
             })
         })
-        console.log(content)
+    }
+
+    async function fectchWatsonAndReturnKeywords(sentence) {
+        return new Promise((resolve, reject) => {
+            nlu.analyze({
+                text: sentence,
+                features: {
+                    keywords: {}
+                }
+            }, (error, response) => {
+                if (error) {
+                    throw error
+                }
+                const keywords = response.result.keywords.map(keyword => {
+                    return keyword.text
+                })
+                resolve(keywords)
+            })
+        })
+    }
+
+    function limitMaxumumSentences(content){
+        content.sentences = content.sentences.slice(0, content.maximumSentences)
+    }
+
+    async function fetchKeywordsOfAllSentences(content){
+        for( const sentence of content.sentences){
+            sentence.keywords = await fectchWatsonAndReturnKeywords(sentence.text)
+        }
+        console.log(JSON.stringify(content, null, 4))
     }
 }
 
