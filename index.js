@@ -1,15 +1,16 @@
 
 const robots = {
-    userInput: require('./robots/userInput'),
-    text: require('./robots/text')
+    state: require('./robots/state'),
+    input: require('./robots/input'),
+    text: require('./robots/text'), 
+    image: require('./robots/image')
 } 
 
 async function start() {
-    const content = {
-        maximumSentences:7
-    }
-    robots.userInput(content)
-    await robots.text(content);
+   
+    robots.input()
+    await robots.text();
+    await robots.image()
 }
 
 start()
